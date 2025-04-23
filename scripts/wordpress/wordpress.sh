@@ -13,7 +13,7 @@ fi
 # ------------------------------
 # Configurable Variables
 # ------------------------------
-WP_DOMAIN="wp.mooretech.io"
+DOMAIN="EFFECTIVEDOMAIN"
 WP_DIR="/var/www/html"
 WP_DB="wp"
 WP_USER="wpadmin"
@@ -91,7 +91,7 @@ echo "⚙️ Creating NGINX server block..."
 cat > "$NGINX_SITE_CONF" <<EOF
 server {
     listen 80;
-    server_name $WP_DOMAIN;
+    server_name $DOMAIN;
 
     root $WP_DIR;
     index index.php index.html index.htm;
@@ -119,7 +119,7 @@ echo "✅ NGINX configured for WordPress."
 # Obtain SSL Certificate with Certbot
 # ------------------------------
 echo "🔐 Requesting SSL certificate..."
-certbot --nginx -d "$WP_DOMAIN" --non-interactive --agree-tos -m "admin@$WP_DOMAIN" || {
+certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$DOMAIN" || {
   echo "❌ Failed to obtain SSL certificate"; exit 1;
 }
 echo "✅ SSL certificate installed."
@@ -129,7 +129,7 @@ echo "✅ SSL certificate installed."
 # ------------------------------
 echo "🔐 Saving secrets to $WP_SECRETS_FILE..."
 {
-  echo "WP_DOMAIN=$WP_DOMAIN"
+  echo "DOMAIN=$DOMAIN"
   echo "WP_DB=$WP_DB"
   echo "WP_USER=$WP_USER"
   echo "WP_PASSWORD=$WP_PASSWORD"
@@ -141,4 +141,4 @@ chmod 600 "$WP_SECRETS_FILE"
 # ------------------------------
 echo "✅ WordPress installed successfully!"
 echo "🔐 Secrets saved at: $WP_SECRETS_FILE"
-echo "🌐 Visit: https://$WP_DOMAIN"
+echo "🌐 Visit: https://$DOMAIN"
