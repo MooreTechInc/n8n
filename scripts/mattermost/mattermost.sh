@@ -5,10 +5,10 @@ set -euo pipefail
 # ------------------------------
 # Configurable Variables
 # ------------------------------
-DOMAIN="EFFECTIVEDOMAIN"
+DOMAIN="test-erp.mooretech.io"
 CERTBOT_EMAIL="admin@mooretech.io"
 SITE_URL="https://$DOMAIN"
-SUPPORT_EMAIL="SUPPORT_EMAIL"
+SUPPORT_EMAIL="admin@mooretech.io"
 MATTERMOST_SECRETS_FILE="/tmp/mattermost_secrets.env"
 PGDB_USER="mattermost"
 PGDB_PASS="gVPjfuWwfRyyRxR6sW8QuvTiXD98GmmZ3OVK7O"
@@ -21,10 +21,12 @@ MATTERMOST_BIN="$MATTERMOST_DIR/bin"
 
 
 # ------------------------------
-# Install & Configure PostgreSQL
+# Install & Configure PostgreSQL and Certbot
 # ------------------------------
 echo "🐘 Installing PostgreSQL..."
 sudo apt install -y postgresql postgresql-contrib
+sudo apt install -y certbot python3-certbot-nginx
+sudo apt install -y nginx
 
 # Start PostgreSQL service
 sudo systemctl start postgresql
@@ -84,7 +86,7 @@ sudo apt install -y mattermost
 # ------------------------------
 echo "🛠️  Configuring the Mattermost Server..."
 sudo install -C -m 600 -o mattermost -g mattermost /opt/mattermost/config/config.defaults.json /opt/mattermost/config/config.json
-sed -i 's#"SiteURL": "",#"SiteURL": "'"$SITE_URL"'",#' /opt/mattermost/config/config.json
+sed -i 's"SiteURL": "","SiteURL": "'"$SITE_URL"'",#' /opt/mattermost/config/config.json
 sed -i 's#"SupportEmail": "",#"SupportEmail": "'"$SUPPORT_EMAIL"'",#' /opt/mattermost/config/config.json
 sed -i "s/mostest/$PGDB_PASS/g" /opt/mattermost/config/config.json
 sed -i "s/mattermost_test/$PGDB_DB/g" /opt/mattermost/config/config.json
@@ -103,10 +105,13 @@ echo "📦 Mattermost Server installation and configuration completed successful
 # Configure Nginx:
 # ------------------------------
 echo "🔒 Configuring NGINX..."
-sudo apt install -y nginx
 sudo systemctl start nginx
 sudo systemctl enable nginx
-cat > /etc/nginx/sites-available/mattermost <<EOF
+
+# Create NGINX configuration for Mattermost
+echo "🔒 Configuring NGINX reverse proxy..."
+NGINX_SITE_PATH="/etc/nginx/sites-available/erpnext"
+cat > "$NGINX_SITE_PATH" <<EOF
 server {
     listen 80;
     server_name $DOMAIN;
@@ -120,32 +125,36 @@ server {
     }
 }
 EOF
-ln -sf /etc/nginx/sites-available/mattermost /etc/nginx/sites-enabled/mattermost
-nginx -t && systemctl reload nginx || {
-  echo "❌ NGINX configuration failed."; exit 1;
-}
-echo "✅ NGINX configuration is valid and reloaded."
+# Check if the NGINX configuration file exists 
+if [ ! -d /etc/nginx/sites-enabled ]; then
+  sudo mkdir -p /etc/nginx/sites-enabled
+fi
+
+if [ ! -L /etc/nginx/sites-enabled/mattermost ]; then
+  echo "🔗 Creating symbolic link to enable NGINX configuration..."
+  sudo ln -s /etc/nginx/sites-available/mattermost /etc/nginx/sites-enabled/
+fi
+
+# Test NGINX configuration
+echo "🔍 Testing NGINX configuration..."
+sudo nginx -t
+
+# Reload NGINX
+echo "🔄 Reloading NGINX..."
+sudo systemctl reload nginx
+echo "✅ NGINX configuration completed successfully."
 # ------------------------------
 # Run Certbot
 # ------------------------------
-echo "🔐 Running Certbot..."
-certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m $CERTBOT_EMAIL || {
-  echo "❌ Failed to run Certbot."; exit 1;
-}
-echo "✅ Certbot ran successfully and SSL certificate is installed."
-
-# ------------------------------
-# Save secrets
-# ------------------------------
-echo "🔐 Saving secrets to $MATTERMOST_SECRETS_FILE..."
-{
-  echo "DOMAIN=$DOMAIN"
-  echo "SUPPORT_EMAIL=$SUPPORT_EMAIL"
-} > "$MATTERMOST_SECRETS_FILE"
-chmod 600 "$MATTERMOST_SECRETS_FILE"
-echo "✅ Secrets saved to $MATTERMOST_SECRETS_FILE."
+echo "🔒 Running Certbot for SSL certificate..."
+sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email $CERTBOT_EMAIL
+if [ $? -eq 0 ]; then
+  echo "✅ SSL certificate obtained successfully."
+else
+  echo "❌ Failed to obtain SSL certificate. Please check your domain and DNS settings."
+fi
 # ------------------------------
 # Done!
 # ------------------------------
-echo "✅ All done! Mattermost is live at: $SITE_URL"
-echo "🔐 Secrets saved at: $MATTERMOST_SECRETS_FILE"
+echo "🎉 Mattermost installation and configuration completed successfully."
+echo "🔗 Access Mattermost at: $SITE_URL"

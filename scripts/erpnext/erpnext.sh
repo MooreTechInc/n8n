@@ -73,6 +73,15 @@ fi
 if ! grep -q "$FRAPPE_PORT" pwd.yml; then
   echo "⚙️ Replacing port in Docker Compose file..."
   sed -i "s/8080:80/$FRAPPE_PORT:80/" pwd.yml || echo "⚠️ Couldn't update port. Please check manually."
+  cp pwd.yml docker-compose.yml
+fi
+
+# Check if the existing containers are running
+if docker ps -q -f name=frappe | grep -q .; then
+  echo "🔄 Stopping existing Frappe container..."
+  docker-compose -f pwd.yml down
+else
+  echo "ℹ️ No existing Frappe container found."
 fi
 
 docker-compose -f pwd.yml up -d
@@ -125,4 +134,4 @@ fi
 # ------------------------------
 # Done!
 # ------------------------------
-echo "🎉 ERPNext setup completed! Access it via: http://$DOMAIN or https://$DOMAIN if Certbot succeeded."
+echo "🎉 ERPNext setup completed! Access it via: https://$DOMAIN"
