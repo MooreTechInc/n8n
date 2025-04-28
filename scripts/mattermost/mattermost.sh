@@ -6,9 +6,7 @@ set -euo pipefail
 # Configurable Variables
 # ------------------------------
 DOMAIN="test-erp.mooretech.io"
-CERTBOT_EMAIL="admin@mooretech.io"
-SITE_URL="https://$DOMAIN"
-SUPPORT_EMAIL="admin@mooretech.io"
+EMAIL="admin@mooretech.io"
 MATTERMOST_SECRETS_FILE="/tmp/mattermost_secrets.env"
 PGDB_USER="mattermost"
 PGDB_PASS="gVPjfuWwfRyyRxR6sW8QuvTiXD98GmmZ3OVK7O"
@@ -85,12 +83,13 @@ sudo apt install -y mattermost
 # Configure the Mattermost Server:
 # ------------------------------
 echo "🛠️  Configuring the Mattermost Server..."
-sudo install -C -m 600 -o mattermost -g mattermost /opt/mattermost/config/config.defaults.json /opt/mattermost/config/config.json
-sed -i 's"SiteURL": "","SiteURL": "'"$SITE_URL"'",#' /opt/mattermost/config/config.json
-sed -i 's#"SupportEmail": "",#"SupportEmail": "'"$SUPPORT_EMAIL"'",#' /opt/mattermost/config/config.json
-sed -i "s/mostest/$PGDB_PASS/g" /opt/mattermost/config/config.json
-sed -i "s/mattermost_test/$PGDB_DB/g" /opt/mattermost/config/config.json
-sed -i "s/mmuser/$PGDB_USER/g" /opt/mattermost/config/config.json
+curl -fsSL https://raw.githubusercontent.com/MooreTechInc/n8n/refs/heads/main/scripts/mattermost/mattermost.json > $MATTERMOST_CONFIG
+sed -i 's/SUPPORTEMAIL/'$EMAIL'/g' $MATTERMOST_CONFIG
+sed -i 's/PGUSER/'$PGDB_USER'/g' $MATTERMOST_CONFIG
+sed -i 's/PGPASS/'$PGDB_PASS'/g' $MATTERMOST_CONFIG
+sed -i 's/PGDB/'$PGDB_DB'/g' $MATTERMOST_CONFIG
+cat $MATTERMOST_CONFIG
+
 
 # ------------------------------
 # Start the Mattermost Server:
@@ -147,7 +146,7 @@ echo "✅ NGINX configuration completed successfully."
 # Run Certbot
 # ------------------------------
 echo "🔒 Running Certbot for SSL certificate..."
-sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email $CERTBOT_EMAIL
+sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email $EMAIL
 if [ $? -eq 0 ]; then
   echo "✅ SSL certificate obtained successfully."
 else
